@@ -57,6 +57,32 @@
             bottom: 20%;
             transform: rotate(45deg);
         }
+
+        /* Graffiti lines */
+        .graffiti-line {
+            position: absolute;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, white, transparent);
+            opacity: 0.15;
+        }
+
+        .graffiti-line:nth-child(1) { top: 10%; left: 10%; width: 40%; transform: rotate(-15deg); animation: graffitiFloat 3s infinite; }
+        .graffiti-line:nth-child(2) { top: 25%; right: 15%; width: 30%; transform: rotate(20deg); animation: graffitiFloat 4s infinite reverse; }
+        .graffiti-line:nth-child(3) { bottom: 30%; left: 20%; width: 50%; transform: rotate(-30deg); animation: graffitiFloat 5s infinite; }
+        .graffiti-line:nth-child(4) { bottom: 15%; right: 10%; width: 35%; transform: rotate(25deg); animation: graffitiFloat 3.5s infinite reverse; }
+
+        @keyframes graffitiFloat {
+            0%, 100% { opacity: 0.15; transform: translateY(0) rotate(var(--rotate, 0deg)); }
+            50% { opacity: 0.3; transform: translateY(-2px) rotate(var(--rotate, 0deg)); }
+        }
+
+        .server-frame .graffiti-container {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -268,8 +294,14 @@ const SUPABASE_KEY = 'sb_publishable_589VB1cAV3RDSCZ-d2LqpA_LN6epmPY';
 
 {shareMessage && (
                         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl" onClick={() => setShareMessage(null)}>
-                            <div ref={shareRef} className="relative w-full max-w-2xl bg-black border border-white/10 rounded-[3rem] p-12 text-center animate-fade-in server-frame" onClick={e => e.stopPropagation()}>
+<div ref={shareRef} className="relative w-full max-w-2xl bg-black border border-white/10 rounded-[3rem] p-12 text-center animate-fade-in server-frame" onClick={e => e.stopPropagation()}>
                                 <div className="slash-overlay"></div>
+                                <div className="graffiti-container">
+                                    <div className="graffiti-line" style="--rotate: -15deg;"></div>
+                                    <div className="graffiti-line" style="--rotate: 20deg;"></div>
+                                    <div className="graffiti-line" style="--rotate: -30deg;"></div>
+                                    <div className="graffiti-line" style="--rotate: 25deg;"></div>
+                                </div>
                                 <div className="flex justify-between w-full mb-10">
                                     <img src={SERVER_ICON} className="w-12 h-12 rounded-xl" />
                                     <span className="text-[10px] font-mono opacity-20">{new Date(shareMessage.created_at).toLocaleDateString()}</span>
