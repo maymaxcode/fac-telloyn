@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FAC.TELL | Database</title>
+    <title>FAC.TELL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@0.474.0"></script>
@@ -21,7 +21,6 @@
         .line-detail { position: absolute; background: rgba(255,255,255,0.08); pointer-events: none; }
         .glass-input { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
         
-        /* Esconde scrollbar mas mantém funcional */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
 </head>
@@ -66,28 +65,24 @@
 
             const downloadCard = async () => {
                 if (!shareRef.current) return;
-                try {
-                    const canvas = await html2canvas(shareRef.current, {
-                        scale: 2,
-                        backgroundColor: '#050505',
-                        useCORS: true,
-                        width: 1280,
-                        height: 720
-                    });
-                    const link = document.createElement('a');
-                    link.download = `factell-log-${Date.now()}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                } catch (err) {
-                    console.error("Erro ao baixar:", err);
-                }
+                const canvas = await html2canvas(shareRef.current, {
+                    scale: 2,
+                    backgroundColor: '#050505',
+                    useCORS: true,
+                    width: 1280,
+                    height: 720
+                });
+                const link = document.createElement('a');
+                link.download = `factell-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
             };
 
             const handleSend = async () => {
                 if(!inputText.trim()) return;
                 const { error } = await supabaseClient.from('messages').insert([{ 
                     text: inputText, 
-                    author_name: isAnonymous ? 'Anônimo' : (senderName || 'Agente Desconhecido'), 
+                    author_name: isAnonymous ? 'Anônimo' : (senderName || 'Agente'), 
                     is_anonymous: isAnonymous, 
                     image: inputImage 
                 }]);
@@ -95,22 +90,22 @@
             };
 
             return (
-                <div className="min-h-screen flex flex-col">
+                <div className="min-h-screen flex flex-col relative">
                     {/* UI PRINCIPAL */}
                     <header className="max-w-xl mx-auto py-16 text-center w-full">
                         <div onClick={() => { setAdminClicks(v => v + 1); if(adminClicks >= 10) setShowAdmin(true); }} className="cursor-pointer inline-block group">
                             <img src={SERVER_ICON} className="w-24 h-24 rounded-[2.5rem] mx-auto border border-white/10 shadow-2xl mb-6 group-active:scale-90 transition-all" />
                             <h1 className="text-4xl font-black italic tracking-tighter uppercase">FAC<span className="opacity-20">.</span>TELL</h1>
-                            <p className="text-[10px] tracking-[0.4em] uppercase opacity-40 font-bold mt-2">Database Access</p>
+                            <p className="text-[10px] tracking-[0.4em] uppercase opacity-40 font-bold mt-2">Secure Connection</p>
                         </div>
                     </header>
 
-                    <main className="max-w-xl mx-auto px-6 space-y-8 w-full pb-20">
+                    <main className="max-w-xl mx-auto px-6 space-y-8 w-full pb-20 flex-1">
                         <div className="relative group">
                             <textarea 
                                 value={inputText} 
                                 onChange={e => setInputText(e.target.value)} 
-                                placeholder="Relate o ocorrido..." 
+                                placeholder="Escreva o telloyn" 
                                 className="w-full h-72 glass-input rounded-[3rem] p-10 text-xl focus:outline-none focus:border-white/20 transition-all resize-none placeholder:opacity-10" 
                             />
                             <div className="absolute bottom-8 right-8">
@@ -129,27 +124,32 @@
                                     type="text" 
                                     value={senderName} 
                                     onChange={e => setSenderName(e.target.value)} 
-                                    placeholder="NOME DO AGENTE" 
+                                    placeholder="NOME" 
                                     className="flex-1 glass-input rounded-full px-6 py-4 text-[10px] font-bold uppercase tracking-widest focus:outline-none" 
                                 />
                             )}
                         </div>
                     </main>
 
+                    {/* ASSINATURA BY @SUIT */}
+                    <div className="fixed bottom-4 right-6 text-[9px] font-bold uppercase tracking-[0.2em] opacity-20 pointer-events-none">
+                        by @suit
+                    </div>
+
                     {/* MODAL DE ADMIN */}
                     {showAdmin && (
-                        <div className="fixed inset-0 bg-black/95 backdrop-blur-3xl z-50 p-10 overflow-y-auto animate-fade-in">
+                        <div className="fixed inset-0 bg-black/95 backdrop-blur-3xl z-50 p-10 overflow-y-auto">
                             <div className="max-w-2xl mx-auto">
                                 <div className="flex justify-between items-center mb-12">
-                                    <h2 className="text-xs font-black uppercase tracking-[0.4em] opacity-50">Registros do Servidor</h2>
+                                    <h2 className="text-xs font-black uppercase tracking-[0.4em] opacity-50">Registros Recentes</h2>
                                     <button onClick={() => { setShowAdmin(false); setAdminClicks(0); }} className="p-4 hover:bg-white/10 rounded-full transition-all"><i data-lucide="x"></i></button>
                                 </div>
                                 <div className="grid gap-4">
                                     {messages.map(m => (
-                                        <div key={m.id} onClick={() => setShareMessage(m)} className="p-8 bg-white/[0.03] border border-white/5 rounded-[2.5rem] cursor-pointer hover:bg-white/[0.06] transition-all group">
+                                        <div key={m.id} onClick={() => setShareMessage(m)} className="p-8 bg-white/[0.03] border border-white/5 rounded-[2.5rem] cursor-pointer hover:bg-white/[0.06] transition-all">
                                             <div className="flex justify-between items-start mb-4">
-                                                <span className="text-[10px] font-black uppercase tracking-widest opacity-30 group-hover:opacity-100 transition-all">{m.author_name}</span>
-                                                <i data-lucide="external-link" className="w-4 h-4 opacity-0 group-hover:opacity-20"></i>
+                                                <span className="text-[10px] font-black uppercase tracking-widest opacity-30">{m.author_name}</span>
+                                                <i data-lucide="external-link" className="w-4 h-4 opacity-20"></i>
                                             </div>
                                             <p className="text-xl italic opacity-80 leading-relaxed">"{m.text}"</p>
                                         </div>
@@ -159,14 +159,11 @@
                         </div>
                     )}
 
-                    {/* MODAL DE EXPORTAÇÃO (SÓ APARECE O CARTÃO) */}
+                    {/* MODAL DE EXPORTAÇÃO */}
                     {shareMessage && (
                         <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-4">
-                            
-                            {/* AREA DE PREVIEW (O QUE VOCÊ VÊ) */}
-                            <div className="relative shadow-[0_0_100px_rgba(255,255,255,0.05)] rounded-[2rem] overflow-hidden border border-white/10" 
+                            <div className="relative shadow-2xl rounded-[2rem] overflow-hidden border border-white/10" 
                                  style={{ width: 'min(90vw, 896px)', height: 'min(50.6vw, 504px)' }}>
-                                
                                 <div 
                                     ref={shareRef}
                                     style={{ 
@@ -178,18 +175,20 @@
                                     }}
                                     className="p-24 flex flex-col justify-between"
                                 >
-                                    {/* LINHAS E DETALHES (DIVS PARA O HTML2CANVAS LER) */}
                                     <div className="line-detail w-full h-[1px] top-[15%] left-0"></div>
                                     <div className="line-detail w-full h-[1px] bottom-[15%] left-0"></div>
                                     <div className="line-detail h-full w-[1px] left-[10%] top-0"></div>
                                     <div className="line-detail h-full w-[1px] right-[10%] top-0"></div>
+
+                                    {/* CRÉDITO NO CARTÃO */}
+                                    <div className="absolute bottom-8 right-12 text-[12px] font-bold uppercase tracking-[0.3em] opacity-10">by @suit</div>
 
                                     <div className="flex justify-between items-center relative z-10">
                                         <div className="flex items-center gap-8">
                                             <img src={SERVER_ICON} crossOrigin="anonymous" className="w-24 h-24 rounded-[2rem] border border-white/10" />
                                             <div>
                                                 <h3 className="text-3xl font-black tracking-[0.4em] uppercase">FAC.TELL</h3>
-                                                <p className="text-xs font-bold tracking-[0.2em] opacity-30 mt-1">INTERNAL DATABASE</p>
+                                                <p className="text-xs font-bold tracking-[0.2em] opacity-30 mt-1">ENCRYPTED LOG</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -211,18 +210,17 @@
                                     <div className="flex flex-col items-center gap-6 relative z-10">
                                         <div className="w-32 h-1 bg-white/10 rounded-full"></div>
                                         <span className="text-[12px] font-black tracking-[0.6em] uppercase opacity-30">
-                                            {shareMessage.is_anonymous ? 'CRYPTO-LOG ANONYMOUS' : `IDENTIFIED: ${shareMessage.author_name}`}
+                                            {shareMessage.is_anonymous ? 'SECURE ANONYMOUS' : `AGENT: ${shareMessage.author_name}`}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* BOTÕES DE AÇÃO */}
                             <div className="mt-12 flex gap-6">
-                                <button onClick={downloadCard} className="px-12 py-6 bg-white text-black rounded-3xl font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-[0_20px_50px_rgba(255,255,255,0.1)]">
-                                    <i data-lucide="download" className="w-5 h-5"></i> Baixar Cartão HD
+                                <button onClick={downloadCard} className="px-12 py-6 bg-white text-black rounded-3xl font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-4">
+                                    <i data-lucide="download" className="w-5 h-5"></i> Baixar Cartão
                                 </button>
-                                <button onClick={() => setShareMessage(null)} className="px-12 py-6 bg-white/5 border border-white/10 rounded-3xl font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                                <button onClick={() => setShareMessage(null)} className="px-12 py-6 bg-white/5 border border-white/10 rounded-3xl font-black uppercase tracking-widest">
                                     Voltar
                                 </button>
                             </div>
