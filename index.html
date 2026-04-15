@@ -46,8 +46,11 @@
 
         const SUPABASE_URL = 'https://pgvuymtbazkhggxpfntr.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_589VB1cAV3RDSCZ-d2LqpA_LN6epmPY';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1492417652805734521/dFrwuq4Hj8l5BAddXJfB0Put-p1g8kfS3y0kOQEpGl8GgohhEcLWTbCjwJ3uDd1pPu3G';
         const SERVER_ICON = 'https://cdn.discordapp.com/icons/1492282209334329346/f75c16597efaf255ab914a3ec206e627.webp?size=1024';
+        const BAR_IMAGE_URL = 'https://i.ibb.co/3ykp3C9/tellyoyn-bar.png'; 
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const App = () => {
             const [messages, setMessages] = useState([]);
@@ -61,12 +64,10 @@
             const [shareMessage, setShareMessage] = useState(null);
             const [adminTab, setAdminTab] = useState('messages');
             
-            const [webhookUrl, setWebhookUrl] = useState('');
+            // Webhook Tab States
             const [webhookContent, setWebhookContent] = useState('');
-            const [webhookMention, setWebhookMention] = useState('');
-            const [webhookName, setWebhookName] = useState('');
-            const [webhookAvatar, setWebhookAvatar] = useState('');
             const [webhookFile, setWebhookFile] = useState(null);
+            const [isSending, setIsSending] = useState(false);
 
             const shareRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -84,13 +85,14 @@
 
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [messages, shareMessage, showAdmin, adminTab, adminAuthenticated]);
 
-            const downloadCard = async () => {
-                if (!shareRef.current) return;
-                const canvas = await html2canvas(shareRef.current, { scale: 3, backgroundColor: '#000', useCORS: true });
-                const link = document.createElement('a');
-                link.download = `factell-${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+            const handleDelete = async (id) => {
+                if(!confirm('Deseja apagar permanentemente?')) return;
+                const { error } = await supabaseClient.from('messages').delete().eq('id', id);
+                if(!error) {
+                    setMessages(prev => prev.filter(m => m.id !== id));
+                } else {
+                    alert('Erro ao apagar. Verifique as Policies no Supabase.');
+                }
             };
 
             const handleSend = async () => {
@@ -103,172 +105,116 @@
                 setInputText(''); setSenderName('');
             };
 
-            const checkPassword = () => {
-                const pass = adminPassword.toLowerCase();
-                if(pass === 'fac2026') {
-                    setAdminAuthenticated(true);
-                } else {
-                    alert('Acesso Negado');
-                    setAdminPassword('');
-                }
+            const transmitDirect = async () => {
+                if (!shareRef.current || isSending) return;
+                setIsSending(true);
+                try {
+                    const canvas = await html2canvas(shareRef.current, { scale: 2, backgroundColor: '#000', useCORS: true });
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                    
+                    const formData = new FormData();
+                    formData.append('file', blob, 'registro.png');
+                    
+                    // Envia o print
+                    await fetch(WEBHOOK_URL, { method: 'POST', body: formData });
+                    // Envia a barrinha logo dps
+                    await fetch(WEBHOOK_URL, { 
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'}, 
+                        body: JSON.stringify({ content: BAR_IMAGE_URL }) 
+                    });
+
+                    alert('Dados transmitidos com sucesso.');
+                    setShareMessage(null);
+                } catch (e) { alert('Falha na conexão.'); }
+                finally { setIsSending(false); }
             };
 
-            const sendWebhook = async () => {
-                if(!webhookUrl || (!webhookContent && !webhookFile)) return alert('URL e Conteúdo/Arquivo são necessários');
-                
+            const sendManualWebhook = async () => {
+                if(!webhookContent && !webhookFile) return;
+                setIsSending(true);
                 const formData = new FormData();
-                const content = webhookMention ? `<@${webhookMention}> ${webhookContent}` : webhookContent;
-                
-                const payload = { content: content };
-                if (webhookName.trim()) payload.username = webhookName;
-                if (webhookAvatar.trim()) payload.avatar_url = webhookAvatar;
-
-                formData.append('payload_json', JSON.stringify(payload));
+                if (webhookContent) formData.append('payload_json', JSON.stringify({ content: webhookContent }));
                 if (webhookFile) formData.append('file', webhookFile);
 
                 try {
-                    await fetch(webhookUrl, { method: 'POST', body: formData });
-                    alert('Transmitido com sucesso');
-                    setWebhookContent('');
-                    setWebhookFile(null);
-                } catch (e) {
-                    alert('Erro na transmissão');
-                }
+                    await fetch(WEBHOOK_URL, { method: 'POST', body: formData });
+                    alert('Transmitido.');
+                    setWebhookContent(''); setWebhookFile(null);
+                } catch (e) { alert('Erro.'); }
+                finally { setIsSending(false); }
             };
 
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 relative">
-                    {/* UI Principal */}
+                    {/* Main UI */}
                     <div className="w-full max-w-lg space-y-10 relative z-10">
                         <header className="text-center space-y-4">
                             <img 
                                 onClick={() => { setAdminClicks(v => v + 1); if(adminClicks >= 8) setShowAdmin(true); }}
                                 src={SERVER_ICON} 
-                                className="w-24 h-24 rounded-[2.5rem] mx-auto cursor-pointer border border-white/10 active:scale-90 transition-all shadow-2xl" 
+                                className="w-24 h-24 rounded-[2.5rem] mx-auto cursor-pointer border border-white/10 active:scale-90 transition-all" 
                             />
                             <h1 className="text-4xl font-black italic tracking-tighter uppercase">FAC.TELL</h1>
                         </header>
 
                         <div className="space-y-4">
-                            <textarea 
-                                value={inputText} 
-                                onChange={e => setInputText(e.target.value)}
-                                placeholder="Insira sua mensagem..."
-                                className="w-full h-64 glass-input rounded-[2.5rem] p-8 text-lg resize-none placeholder:opacity-10"
-                            />
-                            
+                            <textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Insira sua mensagem..." className="w-full h-64 glass-input rounded-[2.5rem] p-8 text-lg resize-none placeholder:opacity-10" />
                             <div className="flex gap-3">
-                                <button 
-                                    onClick={() => setIsAnonymous(!isAnonymous)}
-                                    className={`flex-1 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${isAnonymous ? 'bg-white text-black border-white' : 'bg-transparent border-white/10 opacity-40'}`}
-                                >
+                                <button onClick={() => setIsAnonymous(!isAnonymous)} className={`flex-1 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border ${isAnonymous ? 'bg-white text-black border-white' : 'bg-transparent border-white/10 opacity-40'}`}>
                                     {isAnonymous ? 'Anônimo' : 'Identificado'}
                                 </button>
-                                <button onClick={handleSend} disabled={!inputText.trim()} className="px-10 bg-white text-black rounded-2xl disabled:opacity-20 active:scale-95 transition-all">
-                                    <i data-lucide="send"></i>
-                                </button>
+                                <button onClick={handleSend} disabled={!inputText.trim()} className="px-10 bg-white text-black rounded-2xl disabled:opacity-20"><i data-lucide="send"></i></button>
                             </div>
-
-                            {!isAnonymous && (
-                                <input 
-                                    value={senderName} onChange={e => setSenderName(e.target.value)}
-                                    placeholder="NOME OU CODINOME"
-                                    className="w-full glass-input rounded-2xl p-5 text-[10px] font-black uppercase tracking-widest text-center"
-                                />
-                            )}
-
-                            <p className="text-[9px] text-center uppercase tracking-widest opacity-30 font-bold leading-relaxed">
-                                se quer falar quem é e só clicar pra ser identificado
-                            </p>
+                            {!isAnonymous && <input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="NOME OU CODINOME" className="w-full glass-input rounded-2xl p-5 text-[10px] font-black uppercase tracking-widest text-center" />}
                         </div>
                     </div>
 
-                    <div className="fixed bottom-6 left-6 text-[8px] font-black uppercase tracking-[0.4em] opacity-20">by suit</div>
-
-                    {/* Admin Dashboard */}
+                    {/* Admin Panel */}
                     {showAdmin && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl z-50 flex items-center justify-center p-4">
                             {!adminAuthenticated ? (
                                 <div className="w-full max-w-sm glass-input p-10 rounded-[2.5rem] text-center space-y-6">
-                                    <h2 className="mono text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Restricted Access</h2>
-                                    <input 
-                                        type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && checkPassword()}
-                                        placeholder="PASSWORD"
-                                        className="w-full bg-transparent border-b border-white/10 p-4 text-center mono tracking-[0.5em] focus:outline-none"
-                                    />
-                                    <div className="flex gap-2">
-                                        <button onClick={checkPassword} className="flex-1 py-4 bg-white text-black rounded-xl text-[10px] font-black uppercase">Unlock</button>
-                                        <button onClick={() => { setShowAdmin(false); setAdminClicks(0); }} className="flex-1 py-4 bg-white/5 rounded-xl text-[10px] font-black uppercase">Cancel</button>
-                                    </div>
+                                    <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && (adminPassword.toLowerCase() === 'fac2026' ? setAdminAuthenticated(true) : alert('Erro'))} placeholder="SENHA" className="w-full bg-transparent border-b border-white/10 p-4 text-center focus:outline-none" />
+                                    <button onClick={() => { setShowAdmin(false); setAdminClicks(0); }} className="w-full py-4 bg-white/5 rounded-xl text-[10px] font-black uppercase">Voltar</button>
                                 </div>
                             ) : (
-                                <div className="w-full max-w-4xl h-[85vh] border border-white/10 rounded-[3rem] flex flex-col overflow-hidden bg-black shadow-2xl">
-                                    <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                                <div className="w-full max-w-4xl h-[85vh] border border-white/10 rounded-[3rem] flex flex-col overflow-hidden bg-black">
+                                    <div className="p-8 border-b border-white/5 flex justify-between items-center">
                                         <div className="flex gap-8">
-                                            <button onClick={() => setAdminTab('messages')} className={`text-[10px] font-black uppercase tracking-widest ${adminTab === 'messages' ? 'opacity-100 underline underline-offset-8' : 'opacity-20'}`}>Registros</button>
-                                            <button onClick={() => setAdminTab('webhook')} className={`text-[10px] font-black uppercase tracking-widest ${adminTab === 'webhook' ? 'opacity-100 underline underline-offset-8' : 'opacity-20'}`}>Transmissor Webhook</button>
+                                            <button onClick={() => setAdminTab('messages')} className={`text-[10px] font-black uppercase tracking-widest ${adminTab === 'messages' ? 'opacity-100' : 'opacity-20'}`}>Registros</button>
+                                            <button onClick={() => setAdminTab('webhook')} className={`text-[10px] font-black uppercase tracking-widest ${adminTab === 'webhook' ? 'opacity-100' : 'opacity-20'}`}>Transmissor Galeria</button>
                                         </div>
-                                        <button onClick={() => { setShowAdmin(false); setAdminAuthenticated(false); setAdminClicks(0); }} className="opacity-40 hover:opacity-100 transition-all"><i data-lucide="x"></i></button>
+                                        <button onClick={() => { setShowAdmin(false); setAdminAuthenticated(false); setAdminClicks(0); }}><i data-lucide="x"></i></button>
                                     </div>
 
                                     <div className="flex-1 overflow-y-auto p-10">
                                         {adminTab === 'messages' ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 {messages.map(m => (
-                                                    <div key={m.id} className="p-8 border border-white/5 rounded-[2rem] hover:bg-white/[0.02] transition-all group">
+                                                    <div key={m.id} className="p-8 border border-white/5 rounded-[2rem] group relative">
                                                         <div className="flex justify-between mb-4">
-                                                            <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">{m.author_name}</span>
-                                                            <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
-                                                                <button onClick={() => setShareMessage(m)}><i data-lucide="share-2" className="w-4 h-4"></i></button>
-                                                                <button onClick={async () => { if(confirm('Apagar permanentemente?')) await supabaseClient.from('messages').delete().eq('id', m.id) }} className="text-red-500/50 hover:text-red-500"><i data-lucide="trash" className="w-4 h-4"></i></button>
+                                                            <span className="text-[10px] font-black opacity-30 uppercase">{m.author_name}</span>
+                                                            <div className="flex gap-4">
+                                                                <button onClick={() => setShareMessage(m)}><i data-lucide="zap" className="w-4 h-4"></i></button>
+                                                                <button onClick={() => handleDelete(m.id)} className="text-red-500/50 hover:text-red-500"><i data-lucide="trash" className="w-4 h-4"></i></button>
                                                             </div>
                                                         </div>
-                                                        <p className="text-xl italic opacity-80 leading-snug">"{m.text}"</p>
+                                                        <p className="text-xl italic opacity-80">"{m.text}"</p>
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
                                             <div className="max-w-xl mx-auto space-y-6">
                                                 <div className="space-y-4">
-                                                    <div className="space-y-2">
-                                                        <label className="text-[9px] uppercase font-black opacity-30 ml-2">Destino (Webhook URL)</label>
-                                                        <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://discord.com/api/webhooks/..." className="w-full glass-input rounded-xl p-4 text-xs mono" />
-                                                    </div>
-                                                    
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div className="space-y-2">
-                                                            <label className="text-[9px] uppercase font-black opacity-30 ml-2">Personalizar Nome (Opcional)</label>
-                                                            <input value={webhookName} onChange={e => setWebhookName(e.target.value)} placeholder="Nome do Bot" className="w-full glass-input rounded-xl p-4 text-xs mono" />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <label className="text-[9px] uppercase font-black opacity-30 ml-2">Marcar Usuário/Cargo (ID)</label>
-                                                            <input value={webhookMention} onChange={e => setWebhookMention(e.target.value)} placeholder="ID" className="w-full glass-input rounded-xl p-4 text-xs mono" />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <label className="text-[9px] uppercase font-black opacity-30 ml-2">Personalizar Avatar (URL Opcional)</label>
-                                                        <input value={webhookAvatar} onChange={e => setWebhookAvatar(e.target.value)} placeholder="URL da imagem .png/.jpg" className="w-full glass-input rounded-xl p-4 text-xs mono" />
-                                                    </div>
-                                                    
-                                                    <div className="space-y-2">
-                                                        <label className="text-[9px] uppercase font-black opacity-30 ml-2">Arquivo da Galeria</label>
-                                                        <div className="flex items-center gap-4">
-                                                            <button onClick={() => fileInputRef.current.click()} className="flex-1 py-4 border border-dashed border-white/20 rounded-xl text-[10px] font-bold uppercase opacity-60 hover:opacity-100 hover:border-white/40 transition-all">
-                                                                {webhookFile ? `Selecionado: ${webhookFile.name}` : 'Selecionar Imagem da Galeria'}
-                                                            </button>
-                                                            {webhookFile && <button onClick={() => setWebhookFile(null)} className="p-4 text-red-500 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-all"><i data-lucide="trash-2" className="w-4 h-4"></i></button>}
-                                                            <input type="file" ref={fileInputRef} onChange={e => setWebhookFile(e.target.files[0])} className="hidden" accept="image/*" />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <label className="text-[9px] uppercase font-black opacity-30 ml-2">Corpo da Transmissão</label>
-                                                        <textarea value={webhookContent} onChange={e => setWebhookContent(e.target.value)} placeholder="Digite o conteúdo da mensagem..." className="w-full h-40 glass-input rounded-2xl p-6 text-xs mono resize-none" />
-                                                    </div>
-
-                                                    <button onClick={sendWebhook} className="w-full py-5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-xl">Transmitir Dados</button>
+                                                    <button onClick={() => fileInputRef.current.click()} className="w-full py-10 border border-dashed border-white/20 rounded-2xl text-[10px] font-black uppercase opacity-60 hover:opacity-100 transition-all">
+                                                        {webhookFile ? `Arquivo: ${webhookFile.name}` : 'Selecionar da Galeria'}
+                                                    </button>
+                                                    <input type="file" ref={fileInputRef} onChange={e => setWebhookFile(e.target.files[0])} className="hidden" accept="image/*" />
+                                                    <textarea value={webhookContent} onChange={e => setWebhookContent(e.target.value)} placeholder="Conteúdo da Transmissão..." className="w-full h-40 glass-input rounded-2xl p-6 text-xs mono resize-none" />
+                                                    <button onClick={sendManualWebhook} disabled={isSending} className="w-full py-5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest active:scale-95">
+                                                        {isSending ? 'Enviando...' : 'Transmitir Dados'}
+                                                    </button>
                                                 </div>
                                             </div>
                                         )}
@@ -278,33 +224,28 @@
                         </div>
                     )}
 
-                    {/* Export Card */}
+                    {/* Share Modal */}
                     {shareMessage && (
-                        <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-4">
-                            <div className="relative border border-white/10 bg-black overflow-hidden shadow-2xl" style={{ width: 'min(90vw, 800px)', aspectRatio: '16/9' }}>
-                                <div ref={shareRef} className="w-[1280px] h-[720px] bg-black p-32 flex flex-col justify-between relative overflow-hidden" style={{ transform: `scale(${Math.min((window.innerWidth * 0.9) / 1280, (window.innerHeight * 0.6) / 720)})`, transformOrigin: 'top left' }}>
+                        <div className="fixed inset-0 bg-black/98 z-[100] flex flex-col items-center justify-center p-4">
+                            <div className="relative border border-white/10 bg-black overflow-hidden" style={{ width: 'min(90vw, 800px)', aspectRatio: '16/9' }}>
+                                <div ref={shareRef} className="w-[1280px] h-[720px] bg-black p-32 flex flex-col justify-between relative" style={{ transform: `scale(${Math.min((window.innerWidth * 0.9) / 1280, (window.innerHeight * 0.6) / 720)})`, transformOrigin: 'top left' }}>
                                     <div className="minimal-line w-px h-full left-20 top-0"></div>
                                     <div className="minimal-line w-px h-full right-20 top-0"></div>
                                     <div className="minimal-line w-full h-px top-20 left-0"></div>
                                     <div className="minimal-line w-full h-px bottom-20 left-0"></div>
                                     <div className="flex justify-between items-center relative z-10">
-                                        <div className="flex items-center gap-6">
-                                            <img src={SERVER_ICON} crossOrigin="anonymous" className="w-16 h-16 rounded-2xl" />
-                                            <h3 className="text-2xl font-black italic tracking-tighter">FAC.TELL</h3>
-                                        </div>
+                                        <div className="flex items-center gap-6"><img src={SERVER_ICON} crossOrigin="anonymous" className="w-16 h-16 rounded-2xl" /><h3 className="text-2xl font-black italic tracking-tighter">FAC.TELL</h3></div>
                                         <span className="mono text-xs opacity-20">{new Date(shareMessage.created_at).toLocaleDateString()}</span>
                                     </div>
-                                    <div className="relative z-10">
-                                        <h2 className={`font-black italic tracking-tight leading-none ${shareMessage.text.length > 60 ? 'text-6xl' : 'text-8xl'}`}>"{shareMessage.text}"</h2>
-                                    </div>
-                                    <div className="relative z-10">
-                                        <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-30">{shareMessage.author_name}</span>
-                                    </div>
+                                    <h2 className={`font-black italic tracking-tight leading-none z-10 ${shareMessage.text.length > 60 ? 'text-6xl' : 'text-8xl'}`}>"{shareMessage.text}"</h2>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-30 z-10">{shareMessage.author_name}</span>
                                 </div>
                             </div>
-                            <div className="mt-12 flex gap-4">
-                                <button onClick={downloadCard} className="px-10 py-5 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-200 transition-all">Salvar Arquivo</button>
-                                <button onClick={() => setShareMessage(null)} className="px-10 py-5 border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/5 transition-all">Fechar</button>
+                            <div className="mt-12 flex flex-col gap-4 w-full max-w-sm">
+                                <button onClick={transmitDirect} disabled={isSending} className="w-full py-5 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] active:scale-95">
+                                    {isSending ? 'Processando...' : 'Confirmar Transmissão'}
+                                </button>
+                                <button onClick={() => setShareMessage(null)} className="w-full py-5 border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[10px]">Voltar</button>
                             </div>
                         </div>
                     )}
